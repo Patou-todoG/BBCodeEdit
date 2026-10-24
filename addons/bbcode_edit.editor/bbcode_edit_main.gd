@@ -52,17 +52,20 @@ func _on_editor_startup() -> void:
 	if started_up:
 		return
 	started_up = true
-	
+
 	# TODO check if InputMap.load_from_project_settings() is better
+	# Do not use load_from_project_settings(): it clears the entire InputMap, including actions dynamically added by other plugins.
 	for setting in ACTION_SETTINGS:
-		if !ProjectSettings.has_setting(setting):
+		if not ProjectSettings.has_setting(setting):
 			continue
 		var action_dict: Dictionary = ProjectSettings.get_setting(setting)
 		var action_name: StringName = setting.substr(6)
+		if InputMap.has_action(action_name):
+			continue
 		InputMap.add_action(action_name, action_dict["deadzone"])
 		for event in action_dict["events"]:
 			InputMap.action_add_event(action_name, event)
-	
+
 	EditorInterface.get_script_editor().editor_script_changed.connect(check_current.unbind(1))
 	check_current.call_deferred()
 
@@ -78,7 +81,7 @@ func add_keybinds() -> void:
 			"events": [toggle_bold],
 		}
 	)
-	
+
 	var toggle_italic := InputEventKey.new()
 	toggle_italic.alt_pressed = true
 	toggle_italic.keycode = 73
@@ -89,7 +92,7 @@ func add_keybinds() -> void:
 			"events": [toggle_italic],
 		}
 	)
-	
+
 	var toggle_underline := InputEventKey.new()
 	toggle_underline.alt_pressed = true
 	toggle_underline.keycode = 85
@@ -100,7 +103,7 @@ func add_keybinds() -> void:
 			"events": [toggle_underline],
 		}
 	)
-	
+
 	var toggle_strike := InputEventKey.new()
 	toggle_strike.alt_pressed = true
 	toggle_strike.keycode = _get_striketrough_keycode()
@@ -111,20 +114,20 @@ func add_keybinds() -> void:
 			"events": [toggle_strike],
 		}
 	)
-	
+
 	if Engine.is_editor_hint():
 		add_editor_keybinds()
-	
+
 	ProjectSettings.save()
-	print_rich("[color=orange]If you don't see the keybinds in the InputMap, please reload the Project.[/color]")	
+	print_rich("[color=orange]If you don't see the keybinds in the InputMap, please reload the Project.[/color]")
 
 
 func _get_striketrough_keycode() -> int:
 	var editor_shortcuts: Variant = EditorInterface.get_editor_settings().get(&"shortcuts")
-	
+
 	if editor_shortcuts == null:
 		return KEY_C
-	
+
 	for shortcut: Dictionary in editor_shortcuts:
 		if shortcut["name"] == "bottom_panels/toggle_shader_editor_bottom_panel":
 			var input_events: Array = shortcut.get("shortcuts")
@@ -132,7 +135,7 @@ func _get_striketrough_keycode() -> int:
 				if input_event.keycode == KEY_S:
 					return KEY_C
 			return KEY_S
-	
+
 	return KEY_C
 
 
@@ -149,7 +152,7 @@ func add_editor_keybinds() -> void:
 	)
 	# NB: Initial values DON'T work, see [url]https://github.com/godotengine/godot/issues/56598[/url]
 	#ProjectSettings.set_initial_value(&"input/bbcode_edit/editor/open_current_file_documentation", open_current_file_documentation.duplicate())
-	
+
 
 
 func remove_keybinds() -> void:
@@ -157,7 +160,7 @@ func remove_keybinds() -> void:
 	ProjectSettings.set_setting("input/" + BBCodeEdit.ACTION_TOGGLE_ITALIC, null)
 	ProjectSettings.set_setting("input/" + BBCodeEdit.ACTION_TOGGLE_UNDERLINE, null)
 	ProjectSettings.set_setting("input/" + BBCodeEdit.ACTION_TOGGLE_STRIKE, null)
-	
+
 	# This calls ProjectSettings.save(), so please call it last
 	remove_editor_keybinds()
 
@@ -180,7 +183,7 @@ func check_bbcode_pretendant(pretendant: Control) -> void:
 
 
 func add_bbcode_handling(code_edit: CodeEdit) -> void:
-	# TODO MAYBE implement automatic script inheritence if script is already overriden by another addon 
+	# TODO MAYBE implement automatic script inheritence if script is already overriden by another addon
 	code_edit.set_meta(&"never_changed", true)
 	code_edit.set_script(BBCodeEdit)
 
@@ -188,7 +191,7 @@ func add_bbcode_handling(code_edit: CodeEdit) -> void:
 ## [b]WARING:[/b] not fully implemented for non-current script
 func open_doc(script: Script, code_edit: CodeEdit = null) -> void:
 	var class_name_: String = script.get_global_name()
-	
+
 	if class_name_ == "":
 		class_name_ = '"' + script.resource_path.trim_prefix("res://") + '"'
 		var bbcode_edit_saved_once: PackedStringArray = EditorInterface.get_meta(&"bbcode_edit_saved_once", PackedStringArray())
@@ -201,11 +204,11 @@ func open_doc(script: Script, code_edit: CodeEdit = null) -> void:
 			# TODO ↑ Fix this for non-current script
 			print_rich("[color=orange]Saving to make godot generate documentation.[/color]")
 			EditorInterface.save_all_scenes()
-	
+
 	elif Scraper.is_current_script_unsaved():
 		print_rich("[color=orange]Saving to make godot generate documentation.[/color]")
 		EditorInterface.save_all_scenes()
-	
+
 	EditorInterface.get_script_editor().get_current_editor().go_to_help.emit.call_deferred("class_name:"+class_name_)
 
 
@@ -219,7 +222,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		var current_editor := EditorInterface.get_script_editor().get_current_editor()
 		if current_editor == null:
 			return
-		
+
 		var code_edit := current_editor.get_base_editor()
 		if code_edit is CodeEdit:
 			open_doc(EditorInterface.get_script_editor().get_current_script(), code_edit)
